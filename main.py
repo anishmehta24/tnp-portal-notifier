@@ -12,7 +12,9 @@ import auth
 import config
 import database
 import detector
+import notifiers
 import scraper
+from models import Company, Notification
 
 
 def setup_logging():
@@ -36,19 +38,32 @@ def setup_logging():
 log = logging.getLogger("main")
 
 
-def deliver(table: str):
-    """Phase-1 stub: 'send' every pending row by logging it, then mark notified.
-    Replace the print with a real notifier.send() and only mark on success."""
+_MODEL = {"notifications": Notification, "companies": Company}
+
+
+def _row_to_item(table: str, row: dict):
+    cls = _MODEL[table]
+    fields = cls.__dataclass_fields__
+    return cls(**{k: row[k] for k in fields})
+
+
+def deliver(table: str, channels: list):
+    """Send every pending row through all channels. Mark an item notified only
+    when at least one channel accepted it, so failures retry next cycle."""
     pending = database.pending_notifications(table)
     if not pending:
         return
-    log.info("Delivering %d pending %s", len(pending), table)
+    log.info("Delivering %d pending %s via %s",
+             len(pending), table, ", ".join(c.name for c in channels))
     delivered = []
     for row in pending:
-        title = row.get("title") or row.get("name")
-        print(f"  [{table}] NEW -> {title}  ({row.get('posted_at') or row.get('posted_on')})")
-        delivered.append(row["uid"])
+        item = _row_to_item(table, row)
+        if any(c.send_item(item) for c in channels):
+            delivered.append(row["uid"])
     database.mark_notified(table, delivered)
+    if len(delivered) < len(pending):
+        log.warning("%d/%d %s not delivered -- will retry next cycle",
+                    len(pending) - len(delivered), len(pending), table)
 
 
 def run_cycle():
@@ -68,8 +83,9 @@ def run_cycle():
     database.insert("companies", [c.as_row() for c in new_companies])
     database.insert("notifications", [n.as_row() for n in new_notifs])
 
-    deliver("companies")
-    deliver("notifications")
+    channels = notifiers.get_notifiers()
+    deliver("companies", channels)
+    deliver("notifications", channels)
     log.info("=== cycle done ===")
 
 

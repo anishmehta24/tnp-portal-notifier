@@ -39,3 +39,15 @@ RETRY_BACKOFF = 2  # seconds, exponential
 
 LOG_PATH = BASE_DIR / "tnp_notifier.log"
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
+
+# --- Notifications ---
+# Comma-separated active channels, e.g. "ntfy", "discord", "ntfy,discord".
+NOTIFY_CHANNELS = os.getenv("NOTIFY_CHANNELS", "console")
+
+# ntfy.sh (no account needed; pick a long, hard-to-guess topic)
+NTFY_SERVER = os.getenv("NTFY_SERVER", "https://ntfy.sh")
+NTFY_TOPIC = os.getenv("NTFY_TOPIC", "")
+NTFY_TOKEN = os.getenv("NTFY_TOKEN", "")  # only for protected/self-hosted topics
+
+# Discord webhook URL
+DISCORD_WEBHOOK_URL = os.getenv("DISCORD_WEBHOOK_URL", "")

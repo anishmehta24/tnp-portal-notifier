@@ -25,9 +25,20 @@ cp .env.example .env   # then fill in TNP_IDENTITY / TNP_PASSWORD
 python main.py
 ```
 
+## Notifications
+Channel-agnostic `notifiers/` package; pick channels with `NOTIFY_CHANNELS` in `.env`
+(comma-separated). An item is marked delivered only when a channel succeeds, so a
+failed send is retried next cycle.
+
+| Channel | Setup |
+|---------|-------|
+| `ntfy`    | No account. Set `NTFY_TOPIC` to a long random string; subscribe in the ntfy app. |
+| `discord` | Set `DISCORD_WEBHOOK_URL` to a channel webhook. |
+| `console` | Default fallback; prints alerts. |
+
 ## Status
 - [x] Phase 1 — login, scraping, change detection, dedup, persistence
-- [ ] Phase 2 — notification channel (Telegram / WhatsApp / etc.)
+- [x] Phase 2 — notification channels (ntfy, Discord, console; pluggable)
 - [ ] Phase 3 — scheduler (every 15 min)
 
 ## Notes
