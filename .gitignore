@@ -1,0 +1,7 @@
+.env
+*.cookies
+*.db
+*.log
+__pycache__/
+*.pyc
+wa_profile/
