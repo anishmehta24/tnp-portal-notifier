@@ -36,10 +36,32 @@ failed send is retried next cycle.
 | `discord` | Set `DISCORD_WEBHOOK_URL` to a channel webhook. |
 | `console` | Default fallback; prints alerts. |
 
+## Running continuously
+`python scheduler.py` runs one cycle immediately, then every `POLL_INTERVAL_MIN`
+minutes. Each run is crash-isolated — a failed poll is logged and the loop continues.
+
+### On a Linux VPS (systemd)
+```bash
+cd ~ && git clone https://github.com/anishmehta24/tnp-portal-notifier.git
+cd tnp-portal-notifier
+python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
+cp .env.example .env && nano .env          # fill creds + NTFY_TOPIC
+sudo cp deploy/tnp-notifier.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now tnp-notifier
+journalctl -u tnp-notifier -f             # watch logs
+```
+Edit `User`/paths in the unit file to match your box. `Restart=always` brings it
+back after crashes or reboots.
+
+### On Windows (Task Scheduler)
+Create a task → trigger "At log on" → action: `python.exe scheduler.py` in the
+project dir. Or just run `python scheduler.py` in a terminal.
+
 ## Status
 - [x] Phase 1 — login, scraping, change detection, dedup, persistence
 - [x] Phase 2 — notification channels (ntfy, Discord, console; pluggable)
-- [ ] Phase 3 — scheduler (every 15 min)
+- [x] Phase 3 — scheduler (every 15 min, crash-isolated) + systemd unit
 
 ## Notes
 `.env`, `*.db`, `*.cookies`, and logs are gitignored. Never commit real credentials.

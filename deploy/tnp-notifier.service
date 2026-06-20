@@ -1,0 +1,17 @@
+[Unit]
+Description=TNP Portal Notifier
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# Adjust User and paths to your VPS
+User=ubuntu
+WorkingDirectory=/home/ubuntu/tnp-portal-notifier
+EnvironmentFile=/home/ubuntu/tnp-portal-notifier/.env
+ExecStart=/home/ubuntu/tnp-portal-notifier/.venv/bin/python scheduler.py
+Restart=always
+RestartSec=30
+
+[Install]
+WantedBy=multi-user.target
