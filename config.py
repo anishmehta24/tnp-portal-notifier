@@ -54,3 +54,7 @@ NTFY_TOKEN = os.getenv("NTFY_TOKEN", "")  # only for protected/self-hosted topic
 
 # Discord webhook URL
 DISCORD_WEBHOOK_URL = os.getenv("DISCORD_WEBHOOK_URL", "")
+
+# --- Heartbeat / dead-man's-switch (optional) ---
+# e.g. a healthchecks.io ping URL: https://hc-ping.com/<uuid>
+HEARTBEAT_URL = os.getenv("HEARTBEAT_URL", "")

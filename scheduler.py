@@ -11,6 +11,7 @@ from apscheduler.schedulers.blocking import BlockingScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 
 import config
+import heartbeat
 import main
 
 log = logging.getLogger("scheduler")
@@ -19,8 +20,10 @@ log = logging.getLogger("scheduler")
 def safe_cycle():
     try:
         main.run_cycle()
+        heartbeat.success()
     except Exception:
         log.exception("Cycle raised -- skipping this run, loop continues")
+        heartbeat.fail()
 
 
 def start():
