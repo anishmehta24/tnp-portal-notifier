@@ -72,11 +72,22 @@ def run_cycle():
     session = auth.get_session()
     session = auth.ensure_logged_in(session)
 
-    companies = scraper.scrape_companies(session)
+    index_html = scraper.fetch(session, config.INDEX_URL)
+    companies = scraper.parse_companies(index_html)
+    eligible = scraper.parse_eligible(index_html)
     notifications = scraper.scrape_notifications(session)
 
     new_companies = detector.find_new("companies", companies)
     new_notifs = detector.find_new("notifications", notifications)
+
+    if config.ELIGIBLE_ONLY:
+        before = len(new_companies)
+        new_companies = [c for c in new_companies
+                         if scraper.normalize_name(c.name) in eligible]
+        if before != len(new_companies):
+            log.info("Eligibility filter: %d -> %d new companies",
+                     before, len(new_companies))
+
     log.info("New: %d companies, %d notifications",
              len(new_companies), len(new_notifs))
 

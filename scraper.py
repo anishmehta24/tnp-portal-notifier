@@ -92,6 +92,25 @@ def parse_notifications(html: str) -> list[Notification]:
     return out
 
 
+def normalize_name(name: str) -> str:
+    """Loose key for matching a company across the listing and the eligible modal."""
+    return re.sub(r"\s+", " ", (name or "").strip()).casefold().rstrip(".")
+
+
+def parse_eligible(html: str) -> set[str]:
+    """The 'Eligible: N' button opens #eligibleModal, whose body lists the
+    companies the logged-in student is eligible for, one per <li>."""
+    soup = BeautifulSoup(html, "html.parser")
+    modal = soup.find(id="eligibleModal")
+    if not modal:
+        log.warning("eligibleModal not found -- eligibility filter unavailable")
+        return set()
+    names = {normalize_name(li.get_text(strip=True))
+             for li in modal.select(".modal-body li") if li.get_text(strip=True)}
+    log.info("Eligible companies (%d): %s", len(names), ", ".join(sorted(names)))
+    return names
+
+
 def scrape_companies(session) -> list[Company]:
     return parse_companies(fetch(session, config.INDEX_URL))
 

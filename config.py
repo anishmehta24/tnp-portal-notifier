@@ -33,6 +33,9 @@ COOKIE_PATH = BASE_DIR / "session.cookies"
 
 # --- Behaviour ---
 POLL_INTERVAL_MIN = int(os.getenv("POLL_INTERVAL_MIN", "15"))
+
+# Only alert for companies you are eligible for (from the portal's Eligible list).
+ELIGIBLE_ONLY = os.getenv("ELIGIBLE_ONLY", "true").lower() in ("1", "true", "yes")
 REQUEST_TIMEOUT = 20
 MAX_RETRIES = 3
 RETRY_BACKOFF = 2  # seconds, exponential
