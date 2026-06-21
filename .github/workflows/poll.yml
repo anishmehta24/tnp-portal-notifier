@@ -5,7 +5,11 @@ name: TNP Poll
 on:
   schedule:
     - cron: "*/15 * * * *"      # every 15 minutes
-  workflow_dispatch: {}         # allow manual runs from the Actions tab
+  workflow_dispatch:            # allow manual runs from the Actions tab
+    inputs:
+      realert:
+        description: "Re-send this many most-recent notifications (delivery test; 0 = off)"
+        default: "0"
 
 # Never let two polls overlap.
 concurrency:
@@ -38,6 +42,27 @@ jobs:
           key: tnp-db-${{ github.run_id }}
           restore-keys: |
             tnp-db-
+
+      # Delivery test: un-mark the N most-recent notifications so the cycle below
+      # re-sends them. Only active when manually dispatched with realert > 0.
+      - name: Force re-alert (test only)
+        if: ${{ github.event.inputs.realert != '' && github.event.inputs.realert != '0' }}
+        env:
+          REALERT_N: ${{ github.event.inputs.realert }}
+        run: |
+          python - <<'PY'
+          import os, sqlite3, config
+          n = int(os.environ["REALERT_N"])
+          con = sqlite3.connect(config.DB_PATH)
+          rows = con.execute(
+              "SELECT uid, title FROM notifications ORDER BY posted_at DESC LIMIT ?",
+              (n,)).fetchall()
+          con.executemany("UPDATE notifications SET notified=0 WHERE uid=?",
+                          [(r[0],) for r in rows])
+          con.commit()
+          for r in rows:
+              print("re-alert queued:", r[1])
+          PY
 
       - name: Run one poll cycle
         env:
