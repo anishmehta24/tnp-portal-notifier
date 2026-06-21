@@ -10,6 +10,7 @@ when a fetch shows we've been bounced back to the login page.
 """
 import logging
 import pickle
+import time
 
 import requests
 
@@ -56,7 +57,6 @@ def login(session: requests.Session) -> bool:
     if not config.TNP_IDENTITY or not config.TNP_PASSWORD:
         raise RuntimeError("TNP_IDENTITY / TNP_PASSWORD not set (check your .env)")
     log.info("Logging in as %s", config.TNP_IDENTITY)
-    session.get(config.LOGIN_PAGE, timeout=config.REQUEST_TIMEOUT)  # prime cookie
     payload = {
         "identity": config.TNP_IDENTITY,
         "txtcentrenm": config.TNP_CENTRE,
@@ -64,12 +64,27 @@ def login(session: requests.Session) -> bool:
         "submit": "Login",
     }
     session.headers["Referer"] = config.LOGIN_PAGE
-    session.post(config.LOGIN_ACTION, data=payload, timeout=config.REQUEST_TIMEOUT)
-    if is_authenticated(session):
-        _save_cookies(session)
-        log.info("Login successful")
-        return True
-    log.error("Login failed -- check credentials")
+    # The portal occasionally rejects/throttles a login transiently (esp. from
+    # cloud IPs), so retry with backoff before declaring a credential failure.
+    for attempt in range(1, config.MAX_RETRIES + 1):
+        try:
+            session.get(config.LOGIN_PAGE, timeout=config.REQUEST_TIMEOUT)  # fresh token/cookie
+            session.post(config.LOGIN_ACTION, data=payload,
+                         timeout=config.REQUEST_TIMEOUT)
+            if is_authenticated(session):
+                _save_cookies(session)
+                log.info("Login successful")
+                return True
+        except requests.RequestException as e:
+            log.warning("Login attempt %d/%d errored: %s",
+                        attempt, config.MAX_RETRIES, e)
+        if attempt < config.MAX_RETRIES:
+            wait = config.RETRY_BACKOFF ** attempt
+            log.warning("Login attempt %d/%d unsuccessful -- retry in %ds",
+                        attempt, config.MAX_RETRIES, wait)
+            time.sleep(wait)
+    log.error("Login failed after %d attempts -- transient portal issue or bad "
+              "credentials", config.MAX_RETRIES)
     return False
 
 
