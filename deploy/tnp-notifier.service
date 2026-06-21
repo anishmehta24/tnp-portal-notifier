@@ -2,16 +2,30 @@
 Description=TNP Portal Notifier
 After=network-online.target
 Wants=network-online.target
+# Allow up to 5 restarts per 5 min before giving up (avoids a tight crash-loop).
+StartLimitIntervalSec=300
+StartLimitBurst=5
 
 [Service]
 Type=simple
-# Adjust User and paths to your VPS
+# setup.sh rewrites User / paths to match your VM.
 User=ubuntu
 WorkingDirectory=/home/ubuntu/tnp-portal-notifier
 EnvironmentFile=/home/ubuntu/tnp-portal-notifier/.env
 ExecStart=/home/ubuntu/tnp-portal-notifier/.venv/bin/python scheduler.py
+
+# Resilience: auto-restart, but back off so a hard-failure loop can't spin.
 Restart=always
 RestartSec=30
+
+# Keep it light + tidy.
+Nice=10
+MemoryMax=256M
+
+# Basic hardening.
+NoNewPrivileges=true
+ProtectSystem=full
+PrivateTmp=true
 
 [Install]
 WantedBy=multi-user.target
