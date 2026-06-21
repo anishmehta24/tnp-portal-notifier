@@ -37,6 +37,26 @@ failed send is retried next cycle.
 | `console` | Default fallback; prints alerts. |
 
 ## Running continuously
+
+### Option A — GitHub Actions (free, no server, no card) ✅ in use
+`.github/workflows/poll.yml` runs one cycle every 15 min on free public-repo
+Actions. The dedup DB is persisted between runs via `actions/cache`. A fresh DB
+(first run, or after a cache eviction) is seeded silently so history isn't blasted.
+
+Set these repo secrets (Settings → Secrets and variables → Actions):
+
+| Secret | Value |
+|--------|-------|
+| `TNP_PASSWORD` | your portal password |
+| `NTFY_TOPIC`   | your ntfy topic (e.g. `tnp`) |
+| `TNP_IDENTITY` | roll number (optional; defaults in the workflow) |
+| `HEARTBEAT_URL`| healthchecks.io ping URL (optional) |
+
+Trigger manually from the Actions tab ("Run workflow") or wait for the schedule.
+Note: GitHub auto-disables scheduled workflows after 60 days of repo inactivity —
+it emails you to re-enable with one click.
+
+### Option B — Long-running process (VPS / Pi / your PC)
 `python scheduler.py` runs one cycle immediately, then every `POLL_INTERVAL_MIN`
 minutes. Each run is crash-isolated — a failed poll is logged and the loop continues.
 
