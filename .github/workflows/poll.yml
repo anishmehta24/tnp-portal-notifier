@@ -1,0 +1,60 @@
+name: TNP Poll
+
+# Runs the notifier on a schedule (free, no server). GitHub cron is best-effort
+# and may be delayed a few minutes under load -- fine for a placement notifier.
+on:
+  schedule:
+    - cron: "*/15 * * * *"      # every 15 minutes
+  workflow_dispatch: {}         # allow manual runs from the Actions tab
+
+# Never let two polls overlap.
+concurrency:
+  group: tnp-poll
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  poll:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      # Restore the dedup DB from the most recent cache so we remember what was
+      # already seen across runs. First ever run finds nothing -> seeded silently.
+      - name: Restore state DB
+        uses: actions/cache/restore@v4
+        with:
+          path: tnp.db
+          key: tnp-db-${{ github.run_id }}
+          restore-keys: |
+            tnp-db-
+
+      - name: Run one poll cycle
+        env:
+          TNP_IDENTITY: ${{ secrets.TNP_IDENTITY || 'TPBIT-BTECH1024223' }}
+          TNP_PASSWORD: ${{ secrets.TNP_PASSWORD }}
+          NOTIFY_CHANNELS: ntfy
+          NTFY_SERVER: ${{ secrets.NTFY_SERVER || 'https://ntfy.sh' }}
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+          ELIGIBLE_ONLY: "true"
+          HEARTBEAT_URL: ${{ secrets.HEARTBEAT_URL }}
+        run: python main.py
+
+      # Save the updated DB as a new cache entry (keyed by run id; restore-keys
+      # above always picks the newest). Runs even if the cycle failed.
+      - name: Save state DB
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: tnp.db
+          key: tnp-db-${{ github.run_id }}

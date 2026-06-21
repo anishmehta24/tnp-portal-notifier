@@ -69,6 +69,11 @@ def deliver(table: str, channels: list):
 def run_cycle():
     log.info("=== cycle start ===")
     database.init_db()
+    # On a brand-new DB (first run, or after cache loss on CI), record everything
+    # currently on the portal as 'seen' without alerting, so we don't blast the
+    # entire history. Genuinely new items from then on are alerted normally.
+    fresh_db = config.SEED_ON_FIRST_RUN and not (
+        database.known_uids("companies") or database.known_uids("notifications"))
     session = auth.get_session()
     session = auth.ensure_logged_in(session)
 
@@ -94,16 +99,25 @@ def run_cycle():
     database.insert("companies", [c.as_row() for c in new_companies])
     database.insert("notifications", [n.as_row() for n in new_notifs])
 
-    channels = notifiers.get_notifiers()
-    deliver("companies", channels)
-    deliver("notifications", channels)
+    if fresh_db:
+        database.mark_notified("companies", [c.uid for c in new_companies])
+        database.mark_notified("notifications", [n.uid for n in new_notifs])
+        log.info("First run: recorded %d companies + %d notifications as seen "
+                 "(no alerts sent)", len(new_companies), len(new_notifs))
+    else:
+        channels = notifiers.get_notifiers()
+        deliver("companies", channels)
+        deliver("notifications", channels)
     log.info("=== cycle done ===")
 
 
 if __name__ == "__main__":
     setup_logging()
+    import heartbeat
     try:
         run_cycle()
+        heartbeat.success()
     except Exception:
         log.exception("Cycle failed")
+        heartbeat.fail()
         raise

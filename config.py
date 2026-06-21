@@ -36,6 +36,10 @@ POLL_INTERVAL_MIN = int(os.getenv("POLL_INTERVAL_MIN", "15"))
 
 # Only alert for companies you are eligible for (from the portal's Eligible list).
 ELIGIBLE_ONLY = os.getenv("ELIGIBLE_ONLY", "true").lower() in ("1", "true", "yes")
+
+# On a fresh DB, record current portal state as 'seen' without alerting, so the
+# first run (or a run after CI cache loss) doesn't blast the whole history.
+SEED_ON_FIRST_RUN = os.getenv("SEED_ON_FIRST_RUN", "true").lower() in ("1", "true", "yes")
 REQUEST_TIMEOUT = 20
 MAX_RETRIES = 3
 RETRY_BACKOFF = 2  # seconds, exponential
