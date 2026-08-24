@@ -1,0 +1,52 @@
+name: Keepalive
+
+# GitHub disables `schedule:` triggers on a repo with no commit activity for 60
+# days -- that is exactly what silenced TNP Poll on 2026-08-20, 60 days after the
+# last commit. This job resets that clock. Two independent safeguards:
+#   1. re-enable TNP Poll via the API (idempotent, works even if it just lapsed)
+#   2. push a dated commit, but only once the repo has been quiet for 30 days,
+#      so the history does not fill with weekly no-op commits
+on:
+  schedule:
+    - cron: "17 3 * * 1"        # Mondays 03:17 UTC -- ~8 tries before the 60-day cliff
+  workflow_dispatch:
+
+permissions:
+  contents: write               # push the keepalive commit
+  actions: write                # re-enable a lapsed workflow
+
+concurrency:
+  group: keepalive
+  cancel-in-progress: false
+
+jobs:
+  keepalive:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Cheap insurance: if TNP Poll has already been auto-disabled, turn it back
+      # on. Succeeds silently when it is already active.
+      - name: Re-enable TNP Poll
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh workflow enable poll.yml -R "$GITHUB_REPOSITORY"
+
+      # Only commit when the repo has actually gone quiet. Under 30 days there is
+      # real activity keeping the schedule alive and a commit would be noise.
+      - name: Commit if the repo has been quiet for 30 days
+        run: |
+          set -euo pipefail
+          last=$(git log -1 --format=%ct)
+          age=$(( ( $(date +%s) - last ) / 86400 ))
+          echo "last commit was ${age} day(s) ago"
+          if [ "$age" -lt 30 ]; then
+            echo "recent activity -- schedule is safe, nothing to do"
+            exit 0
+          fi
+          date -u +"%Y-%m-%dT%H:%M:%SZ" > .github/keepalive
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .github/keepalive
+          git commit -m "chore: keepalive -- keep scheduled workflows enabled"
+          git push
